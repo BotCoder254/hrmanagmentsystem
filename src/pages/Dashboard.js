@@ -61,9 +61,14 @@ const Dashboard = () => {
   };
 
   const getPerformanceScore = () => {
-    if (!performance || performance.length === 0) return '0/100';
-    const latestScore = performance[performance.length - 1].score;
-    return `${latestScore}/100`;
+    if (!performance || !Array.isArray(performance) || performance.length === 0) return '0/100';
+    const latestReview = performance.reduce((latest, current) => {
+      const currentDate = new Date(current.reviewDate || current.timestamp);
+      const latestDate = new Date(latest.reviewDate || latest.timestamp);
+      return currentDate > latestDate ? current : latest;
+    }, performance[0]);
+    
+    return latestReview.rating ? `${latestReview.rating * 20}/100` : '0/100';
   };
 
   const formatDate = (dateString) => {
@@ -85,11 +90,11 @@ const Dashboard = () => {
   };
 
   const performanceData = {
-    labels: performance?.map(p => formatDate(p.date)) || [],
+    labels: performance?.map(p => formatDate(p.reviewDate || p.timestamp)) || [],
     datasets: [
       {
         label: 'Performance Score',
-        data: performance?.map(p => p.score) || [],
+        data: performance?.map(p => p.rating ? p.rating * 20 : 0) || [],
         backgroundColor: 'rgba(96, 181, 255, 0.5)',
         borderColor: '#60B5FF',
         borderWidth: 2,
@@ -112,6 +117,9 @@ const Dashboard = () => {
       y: {
         min: 0,
         max: 100,
+        ticks: {
+          stepSize: 20
+        }
       },
     },
   };
