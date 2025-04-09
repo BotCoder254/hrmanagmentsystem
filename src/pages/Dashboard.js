@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import DashboardLayout from '../layouts/DashboardLayout';
 import StatsCard from '../components/dashboard/StatsCard';
 import { useAuth } from '../context/AuthContext';
@@ -66,8 +66,26 @@ const Dashboard = () => {
     return `${latestScore}/100`;
   };
 
+  const formatDate = (dateString) => {
+    try {
+      if (!dateString) return '';
+      // Try to parse ISO date string
+      const date = parseISO(dateString);
+      return format(date, 'MMM d');
+    } catch (error) {
+      // If parsing fails, try creating a new Date object
+      try {
+        const date = new Date(dateString);
+        return format(date, 'MMM d');
+      } catch (error) {
+        console.error('Error formatting date:', error);
+        return '';
+      }
+    }
+  };
+
   const performanceData = {
-    labels: performance?.map(p => format(new Date(p.date), 'MMM d')) || [],
+    labels: performance?.map(p => formatDate(p.date)) || [],
     datasets: [
       {
         label: 'Performance Score',
@@ -207,7 +225,7 @@ const Dashboard = () => {
                     {announcement.content}
                   </p>
                   <p className="text-xs text-gray-400 mt-2">
-                    {format(announcement.timestamp, 'MMM d, yyyy')}
+                    {formatDate(announcement.timestamp)}
                   </p>
                 </div>
               ))}

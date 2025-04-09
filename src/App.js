@@ -12,6 +12,7 @@ import EmployeesPage from './pages/employees';
 import Profile from './pages/employees/Profile';
 import AnnouncementsPage from './pages/announcements';
 import LeavesPage from './pages/leaves';
+import PerformancePage from './pages/performance';
 
 function App() {
   return (
@@ -58,6 +59,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/performance"
+            element={
+              <ProtectedRoute>
+                <PerformancePage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Admin Routes */}
           <Route
@@ -89,6 +98,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <LeavesPage isAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/performance"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <PerformancePage isAdmin />
               </ProtectedRoute>
             }
           />

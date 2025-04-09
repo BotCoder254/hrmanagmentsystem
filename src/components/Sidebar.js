@@ -13,7 +13,8 @@ import {
   FaUserCircle,
   FaUserCog,
   FaBullhorn,
-  FaCalendarCheck
+  FaCalendarCheck,
+  FaChartLine
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,6 +28,7 @@ const Sidebar = () => {
     { path: '/admin/employees', icon: <FaUsers />, label: 'Employees' },
     { path: '/admin/announcements', icon: <FaBullhorn />, label: 'Announcements' },
     { path: '/admin/leaves', icon: <FaCalendarCheck />, label: 'Leave Requests' },
+    { path: '/admin/performance', icon: <FaChartLine />, label: 'Performance' },
     { path: '/admin/settings', icon: <FaCog />, label: 'Settings' },
   ];
 
@@ -35,6 +37,7 @@ const Sidebar = () => {
     { path: '/dashboard/profile', icon: <FaUserCog />, label: 'My Profile' },
     { path: '/dashboard/announcements', icon: <FaBullhorn />, label: 'Announcements' },
     { path: '/dashboard/leaves', icon: <FaCalendarCheck />, label: 'Leave Requests' },
+    { path: '/dashboard/performance', icon: <FaChartLine />, label: 'Performance' },
   ];
 
   const menuItems = user?.role === 'admin' ? adminMenuItems : employeeMenuItems;

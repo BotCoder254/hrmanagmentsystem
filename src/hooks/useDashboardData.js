@@ -24,11 +24,16 @@ export const useDashboardData = (userId, isAdmin = false) => {
         );
         
         const announcementsUnsubscribe = onSnapshot(announcementsQuery, (snapshot) => {
-          const announcements = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp?.toDate() || new Date()
-          }));
+          const announcements = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              timestamp: data.timestamp?.toDate() || new Date(),
+              createdAt: data.createdAt?.toDate() || new Date(),
+              updatedAt: data.updatedAt?.toDate() || new Date()
+            };
+          });
           setData(prev => ({ ...prev, announcements }));
         });
         unsubscribers.push(announcementsUnsubscribe);
@@ -58,10 +63,17 @@ export const useDashboardData = (userId, isAdmin = false) => {
           );
           
           const performanceUnsubscribe = onSnapshot(performanceQuery, (snapshot) => {
-            const performanceData = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            }));
+            const performanceData = snapshot.docs.map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                ...data,
+                date: data.date || data.timestamp?.toDate()?.toISOString() || new Date().toISOString(),
+                timestamp: data.timestamp?.toDate() || new Date(),
+                createdAt: data.createdAt?.toDate() || new Date(),
+                updatedAt: data.updatedAt?.toDate() || new Date()
+              };
+            });
             
             setData(prev => ({ ...prev, performance: performanceData }));
           });
