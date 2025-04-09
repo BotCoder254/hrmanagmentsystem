@@ -6,13 +6,18 @@ const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Fixed Sidebar */}
+      <div className="fixed inset-y-0 left-0">
+        <Sidebar />
+      </div>
+
+      {/* Main Content - Scrollable */}
       <motion.main
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 overflow-auto"
+        className="flex-1 overflow-auto ml-[240px]"
       >
         <div className="container mx-auto px-6 py-8">
           {/* User Info Header */}

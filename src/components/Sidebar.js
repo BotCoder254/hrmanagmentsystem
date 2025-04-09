@@ -84,7 +84,8 @@ const Sidebar = () => {
     <motion.div
       initial={{ width: 240 }}
       animate={{ width: isCollapsed ? 80 : 240 }}
-      className="min-h-screen bg-white border-r border-gray-200 flex flex-col"
+      className="h-full bg-white border-r border-gray-200 flex flex-col shadow-sm"
+      style={{ minWidth: isCollapsed ? 80 : 240 }}
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between border-b border-gray-200">
@@ -122,7 +123,7 @@ const Sidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
           {filteredMenuItems.map((item) => (
             <li key={item.path}>
