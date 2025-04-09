@@ -8,7 +8,7 @@ import {
   signInWithPopup,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../config/firebase';
 
 const AuthContext = createContext();
@@ -27,8 +27,21 @@ export const AuthProvider = ({ children }) => {
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         email,
         role,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
+
+      // Create initial employee profile
+      if (role === 'employee') {
+        await setDoc(doc(db, 'employees', userCredential.user.uid), {
+          email,
+          name: email.split('@')[0],
+          role: 'employee',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+
       return userCredential;
     } catch (error) {
       throw error;
@@ -45,10 +58,21 @@ export const AuthProvider = ({ children }) => {
       const userDoc = await getDoc(doc(db, 'users', result.user.uid));
       
       if (!userDoc.exists()) {
+        // Set default role as employee for Google sign-in
         await setDoc(doc(db, 'users', result.user.uid), {
           email: result.user.email,
-          role: 'employee', // Default role for Google sign-in
-          createdAt: new Date().toISOString()
+          role: 'employee',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        // Create initial employee profile
+        await setDoc(doc(db, 'employees', result.user.uid), {
+          email: result.user.email,
+          name: result.user.displayName || result.user.email.split('@')[0],
+          role: 'employee',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
       }
       return result;
@@ -68,11 +92,31 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setUser({ ...currentUser, ...userDoc.data() });
-        } else {
-          setUser(currentUser);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUser({ 
+              ...currentUser, 
+              ...userDoc.data(),
+              id: currentUser.uid 
+            });
+          } else {
+            // If user document doesn't exist, create it with default role
+            await setDoc(doc(db, 'users', currentUser.uid), {
+              email: currentUser.email,
+              role: 'employee',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+            setUser({ 
+              ...currentUser, 
+              role: 'employee',
+              id: currentUser.uid 
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUser(null);
         }
       } else {
         setUser(null);

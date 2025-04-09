@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   FaChartBar, 
@@ -14,41 +14,71 @@ import {
   FaUserCog,
   FaBullhorn,
   FaCalendarCheck,
-  FaChartLine
+  FaChartLine,
+  FaBriefcase
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logOut } = useAuth();
 
-  const adminMenuItems = [
-    { path: '/admin', icon: <FaChartBar />, label: 'Dashboard' },
-    { path: '/admin/employees', icon: <FaUsers />, label: 'Employees' },
-    { path: '/admin/announcements', icon: <FaBullhorn />, label: 'Announcements' },
-    { path: '/admin/leaves', icon: <FaCalendarCheck />, label: 'Leave Requests' },
-    { path: '/admin/performance', icon: <FaChartLine />, label: 'Performance' },
-    { path: '/admin/settings', icon: <FaCog />, label: 'Settings' },
+  const menuItems = [
+    // Common items for both roles
+    {
+      path: user?.role === 'admin' ? '/admin' : '/dashboard',
+      icon: <FaChartBar />,
+      label: 'Dashboard',
+    },
+    {
+      path: user?.role === 'admin' ? '/admin/employees' : '/dashboard/profile',
+      icon: user?.role === 'admin' ? <FaUsers /> : <FaUserCog />,
+      label: user?.role === 'admin' ? 'Employees' : 'My Profile',
+      adminOnly: user?.role === 'admin',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/announcements`,
+      icon: <FaBullhorn />,
+      label: 'Announcements',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/leaves`,
+      icon: <FaCalendarCheck />,
+      label: 'Leave Requests',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/performance`,
+      icon: <FaChartLine />,
+      label: 'Performance',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/jobs`,
+      icon: <FaBriefcase />,
+      label: 'Jobs',
+    },
+    // Admin-only items
+    {
+      path: '/admin/settings',
+      icon: <FaCog />,
+      label: 'Settings',
+      adminOnly: true,
+    },
   ];
-
-  const employeeMenuItems = [
-    { path: '/dashboard', icon: <FaChartBar />, label: 'Dashboard' },
-    { path: '/dashboard/profile', icon: <FaUserCog />, label: 'My Profile' },
-    { path: '/dashboard/announcements', icon: <FaBullhorn />, label: 'Announcements' },
-    { path: '/dashboard/leaves', icon: <FaCalendarCheck />, label: 'Leave Requests' },
-    { path: '/dashboard/performance', icon: <FaChartLine />, label: 'Performance' },
-  ];
-
-  const menuItems = user?.role === 'admin' ? adminMenuItems : employeeMenuItems;
 
   const handleLogout = async () => {
     try {
       await logOut();
+      navigate('/login');
     } catch (error) {
       console.error('Failed to log out:', error);
     }
   };
+
+  const filteredMenuItems = menuItems.filter(
+    item => !item.adminOnly || user?.role === 'admin'
+  );
 
   return (
     <motion.div
@@ -94,7 +124,7 @@ const Sidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <li key={item.path}>
               <Link
                 to={item.path}

@@ -1,18 +1,23 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Public Pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
+import Unauthorized from './pages/Unauthorized';
+
+// Protected Pages
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import Unauthorized from './pages/Unauthorized';
 import EmployeesPage from './pages/employees';
 import Profile from './pages/employees/Profile';
 import AnnouncementsPage from './pages/announcements';
 import LeavesPage from './pages/leaves';
 import PerformancePage from './pages/performance';
+import JobsPage from './pages/jobs';
 
 function App() {
   return (
@@ -26,7 +31,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Protected Routes - Employee */}
+          {/* Protected Employee Routes */}
           <Route
             path="/dashboard"
             element={
@@ -67,8 +72,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/jobs"
+            element={
+              <ProtectedRoute>
+                <JobsPage />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Admin Routes */}
+          {/* Protected Admin Routes */}
           <Route
             path="/admin"
             element={
@@ -81,7 +94,7 @@ function App() {
             path="/admin/employees"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <EmployeesPage />
+                <EmployeesPage isAdmin />
               </ProtectedRoute>
             }
           />
@@ -106,6 +119,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <PerformancePage isAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/jobs"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <JobsPage isAdmin />
               </ProtectedRoute>
             }
           />
