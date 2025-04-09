@@ -9,11 +9,14 @@ import {
   FaMapMarkerAlt,
   FaClock,
   FaMoneyBillWave,
-  FaUserGraduate
+  FaUserGraduate,
+  FaCheckCircle,
+  FaHourglassHalf,
+  FaTimesCircle
 } from 'react-icons/fa';
 import { format } from 'date-fns';
 
-const JobCard = ({ job, onEdit, onDelete, isAdmin, onRefer }) => {
+const JobCard = ({ job, onEdit, onDelete, isAdmin, onRefer, myReferral }) => {
   const { 
     title, 
     department, 
@@ -38,6 +41,18 @@ const JobCard = ({ job, onEdit, onDelete, isAdmin, onRefer }) => {
     active: 'bg-green-100 text-green-800',
     closed: 'bg-red-100 text-red-800',
     draft: 'bg-gray-100 text-gray-800'
+  };
+
+  const applicationStatusColors = {
+    approved: 'text-green-500',
+    rejected: 'text-red-500',
+    pending: 'text-yellow-500'
+  };
+
+  const applicationStatusIcons = {
+    approved: <FaCheckCircle className="w-4 h-4" />,
+    rejected: <FaTimesCircle className="w-4 h-4" />,
+    pending: <FaHourglassHalf className="w-4 h-4" />
   };
 
   // Ensure arrays are properly formatted
@@ -89,9 +104,17 @@ const JobCard = ({ job, onEdit, onDelete, isAdmin, onRefer }) => {
           </div>
         </div>
 
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[status] || statusColors.draft}`}>
-          {status || 'draft'}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[status] || statusColors.draft}`}>
+            {status || 'draft'}
+          </span>
+          {myReferral && (
+            <div className={`flex items-center gap-1 text-xs font-medium ${applicationStatusColors[myReferral.status]}`}>
+              {applicationStatusIcons[myReferral.status]}
+              <span>Application {myReferral.status}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
@@ -196,7 +219,7 @@ const JobCard = ({ job, onEdit, onDelete, isAdmin, onRefer }) => {
               </button>
             </>
           ) : (
-            status === 'active' && (
+            status === 'active' && !myReferral && (
               <button
                 onClick={() => onRefer(job)}
                 className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
