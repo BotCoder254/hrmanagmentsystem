@@ -20,6 +20,8 @@ import {
   FaFileAlt,
   FaAngleLeft,
   FaAngleRight,
+  FaClock,
+  FaCalendarDay,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,6 +34,7 @@ const Sidebar = () => {
   const employeeLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: FaHome },
     { name: 'Announcements', path: '/dashboard/announcements', icon: FaBullhorn },
+    { name: 'Attendance', path: '/dashboard/attendance', icon: FaClock },
     { name: 'Leaves', path: '/dashboard/leaves', icon: FaCalendarAlt },
     { name: 'Performance', path: '/dashboard/performance', icon: FaChartLine },
     { name: 'Jobs', path: '/dashboard/jobs', icon: FaBriefcase },
@@ -42,6 +45,7 @@ const Sidebar = () => {
     { name: 'Dashboard', path: '/admin', icon: FaHome },
     { name: 'Employees', path: '/admin/employees', icon: FaUsers },
     { name: 'Announcements', path: '/admin/announcements', icon: FaBullhorn },
+    { name: 'Attendance', path: '/admin/attendance', icon: FaClock },
     { name: 'Leaves', path: '/admin/leaves', icon: FaCalendarAlt },
     { name: 'Performance', path: '/admin/performance', icon: FaChartLine },
     { name: 'Jobs', path: '/admin/jobs', icon: FaBriefcase },
@@ -65,6 +69,11 @@ const Sidebar = () => {
       path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/announcements`,
       icon: <FaBullhorn />,
       label: 'Announcements',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/attendance`,
+      icon: <FaClock />,
+      label: 'Attendance',
     },
     {
       path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/leaves`,

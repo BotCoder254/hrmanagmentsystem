@@ -19,6 +19,7 @@ import LeavesPage from './pages/leaves';
 import PerformancePage from './pages/performance';
 import JobsPage from './pages/jobs';
 import DocumentsPage from './pages/documents';
+import AttendancePage from './pages/attendance';
 
 function App() {
   return (
@@ -54,6 +55,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AnnouncementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/attendance"
+            element={
+              <ProtectedRoute>
+                <AttendancePage />
               </ProtectedRoute>
             }
           />
@@ -112,6 +121,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AnnouncementsPage isAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AttendancePage isAdmin />
               </ProtectedRoute>
             }
           />
