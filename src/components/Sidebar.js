@@ -15,7 +15,11 @@ import {
   FaBullhorn,
   FaCalendarCheck,
   FaChartLine,
-  FaBriefcase
+  FaBriefcase,
+  FaHome,
+  FaFileAlt,
+  FaAngleLeft,
+  FaAngleRight,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,6 +28,25 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logOut } = useAuth();
+
+  const employeeLinks = [
+    { name: 'Dashboard', path: '/dashboard', icon: FaHome },
+    { name: 'Announcements', path: '/dashboard/announcements', icon: FaBullhorn },
+    { name: 'Leaves', path: '/dashboard/leaves', icon: FaCalendarAlt },
+    { name: 'Performance', path: '/dashboard/performance', icon: FaChartLine },
+    { name: 'Jobs', path: '/dashboard/jobs', icon: FaBriefcase },
+    { name: 'Documents', path: '/dashboard/documents', icon: FaFileAlt },
+  ];
+
+  const adminLinks = [
+    { name: 'Dashboard', path: '/admin', icon: FaHome },
+    { name: 'Employees', path: '/admin/employees', icon: FaUsers },
+    { name: 'Announcements', path: '/admin/announcements', icon: FaBullhorn },
+    { name: 'Leaves', path: '/admin/leaves', icon: FaCalendarAlt },
+    { name: 'Performance', path: '/admin/performance', icon: FaChartLine },
+    { name: 'Jobs', path: '/admin/jobs', icon: FaBriefcase },
+    { name: 'Documents', path: '/admin/documents', icon: FaFileAlt },
+  ];
 
   const menuItems = [
     // Common items for both roles
@@ -57,6 +80,11 @@ const Sidebar = () => {
       path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/jobs`,
       icon: <FaBriefcase />,
       label: 'Jobs',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/documents`,
+      icon: <FaFileAlt />,
+      label: 'Documents',
     },
     // Admin-only items
     {

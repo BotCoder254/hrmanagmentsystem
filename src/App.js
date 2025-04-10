@@ -18,6 +18,7 @@ import AnnouncementsPage from './pages/announcements';
 import LeavesPage from './pages/leaves';
 import PerformancePage from './pages/performance';
 import JobsPage from './pages/jobs';
+import DocumentsPage from './pages/documents';
 
 function App() {
   return (
@@ -80,6 +81,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/documents"
+            element={
+              <ProtectedRoute>
+                <DocumentsPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Admin Routes */}
           <Route
@@ -127,6 +136,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <JobsPage isAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/documents"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <DocumentsPage isAdmin />
               </ProtectedRoute>
             }
           />
