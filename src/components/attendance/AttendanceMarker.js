@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { FaCheck, FaClock, FaSpinner, FaSignInAlt, FaSignOutAlt, FaUserCheck } from 'react-icons/fa';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -33,7 +33,14 @@ const AttendanceMarker = () => {
 
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        setTodayAttendance({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+        setTodayAttendance({
+          id: doc.id,
+          ...data,
+          checkInTime: data.checkInTime?.toDate?.() || null,
+          checkOutTime: data.checkOutTime?.toDate?.() || null
+        });
       }
     } catch (error) {
       console.error('Error checking attendance:', error);
@@ -53,7 +60,7 @@ const AttendanceMarker = () => {
 
       if (!todayAttendance) {
         // Create new attendance record
-        await addDoc(collection(db, 'attendance'), {
+        const attendanceData = {
           employeeId: user.uid,
           employeeName: user.email?.split('@')[0] || 'Unknown',
           date: today,
@@ -61,10 +68,20 @@ const AttendanceMarker = () => {
           checkOutTime: type === 'out' ? serverTimestamp() : null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
+        };
+
+        await addDoc(collection(db, 'attendance'), attendanceData);
+      } else {
+        // Update existing record
+        const attendanceRef = doc(db, 'attendance', todayAttendance.id);
+        await updateDoc(attendanceRef, {
+          [type === 'in' ? 'checkInTime' : 'checkOutTime']: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
       }
 
       await checkTodayAttendance();
+      setShowModal(true);
     } catch (error) {
       console.error('Error marking attendance:', error);
     } finally {
@@ -76,14 +93,26 @@ const AttendanceMarker = () => {
     if (!todayAttendance) {
       return {
         checkIn: true,
-        checkOut: false
+        checkOut: false,
+        text: 'Check In'
       };
     }
 
     return {
       checkIn: !todayAttendance.checkInTime,
-      checkOut: !!todayAttendance.checkInTime && !todayAttendance.checkOutTime
+      checkOut: !!todayAttendance.checkInTime && !todayAttendance.checkOutTime,
+      text: todayAttendance.checkInTime ? 'Check Out' : 'Check In'
     };
+  };
+
+  const formatTime = (date) => {
+    try {
+      if (!date) return 'N/A';
+      return format(date instanceof Date ? date : date.toDate(), 'hh:mm a');
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'N/A';
+    }
   };
 
   const buttonState = getButtonState();
@@ -131,10 +160,10 @@ const AttendanceMarker = () => {
           <h3 className="text-sm font-medium text-gray-900 mb-2">Today's Status</h3>
           <div className="space-y-2 text-sm text-gray-600">
             {todayAttendance.checkInTime && (
-              <p>Check In: {new Date(todayAttendance.checkInTime?.toDate()).toLocaleTimeString()}</p>
+              <p>Check In: {formatTime(todayAttendance.checkInTime)}</p>
             )}
             {todayAttendance.checkOutTime && (
-              <p>Check Out: {new Date(todayAttendance.checkOutTime?.toDate()).toLocaleTimeString()}</p>
+              <p>Check Out: {formatTime(todayAttendance.checkOutTime)}</p>
             )}
           </div>
         </div>

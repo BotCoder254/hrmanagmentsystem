@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +23,7 @@ const AttendanceCalendar = () => {
     try {
       setLoading(true);
       const monthStart = startOfMonth(currentDate);
+      const monthEnd = endOfMonth(currentDate);
 
       const attendanceRef = collection(db, 'attendance');
       const q = query(
@@ -31,13 +32,39 @@ const AttendanceCalendar = () => {
       );
 
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date.toDate()
-      })).filter(record => {
-        const recordDate = record.date;
-        return isSameMonth(recordDate, currentDate);
+      const data = snapshot.docs.map(doc => {
+        const docData = doc.data();
+        let date;
+        try {
+          // Handle different date formats
+          if (docData.date?.toDate) {
+            date = docData.date.toDate();
+          } else if (typeof docData.date === 'string') {
+            date = parseISO(docData.date);
+          } else if (docData.date instanceof Date) {
+            date = docData.date;
+          } else {
+            date = new Date(docData.date);
+          }
+        } catch (error) {
+          console.error('Error parsing date:', error);
+          date = new Date();
+        }
+
+        return {
+          id: doc.id,
+          ...docData,
+          date: date,
+          checkInTime: docData.checkInTime?.toDate?.() || null,
+          checkOutTime: docData.checkOutTime?.toDate?.() || null
+        };
+      }).filter(record => {
+        try {
+          return isSameMonth(record.date, currentDate);
+        } catch (error) {
+          console.error('Error filtering date:', error);
+          return false;
+        }
       });
 
       setAttendanceData(data);
@@ -49,15 +76,20 @@ const AttendanceCalendar = () => {
   };
 
   const getDayColor = (day) => {
-    const attendance = attendanceData.find(a => isSameDay(a.date, day));
-    if (!attendance) return 'bg-gray-50 text-gray-400';
-    
-    if (attendance.checkInTime && attendance.checkOutTime) {
-      return 'bg-green-100 text-green-800';
-    } else if (attendance.checkInTime) {
-      return 'bg-yellow-100 text-yellow-800';
+    try {
+      const attendance = attendanceData.find(a => isSameDay(a.date, day));
+      if (!attendance) return 'bg-gray-50 text-gray-400';
+      
+      if (attendance.checkInTime && attendance.checkOutTime) {
+        return 'bg-green-100 text-green-800';
+      } else if (attendance.checkInTime) {
+        return 'bg-yellow-100 text-yellow-800';
+      }
+      return 'bg-red-100 text-red-800';
+    } catch (error) {
+      console.error('Error getting day color:', error);
+      return 'bg-gray-50 text-gray-400';
     }
-    return 'bg-red-100 text-red-800';
   };
 
   const days = eachDayOfInterval({
@@ -88,6 +120,16 @@ const AttendanceCalendar = () => {
       }
       return acc;
     }, { present: 0, partial: 0, absent: 0 });
+  };
+
+  const formatTime = (date) => {
+    try {
+      if (!date) return 'N/A';
+      return format(date instanceof Date ? date : date.toDate(), 'hh:mm a');
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'N/A';
+    }
   };
 
   const stats = getMonthlyStats();
@@ -155,10 +197,10 @@ const AttendanceCalendar = () => {
               {attendanceData.find(a => isSameDay(a.date, selectedDay)) ? (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600">
-                    Check In: {format(selectedDay, 'hh:mm a')}
+                    Check In: {formatTime(attendanceData.find(a => isSameDay(a.date, selectedDay))?.checkInTime)}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Check Out: {format(selectedDay, 'hh:mm a')}
+                    Check Out: {formatTime(attendanceData.find(a => isSameDay(a.date, selectedDay))?.checkOutTime)}
                   </p>
                 </div>
               ) : (
