@@ -22,6 +22,7 @@ import {
   FaAngleRight,
   FaClock,
   FaCalendarDay,
+  FaMoneyBillWave
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -94,6 +95,11 @@ const Sidebar = () => {
       path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/documents`,
       icon: <FaFileAlt />,
       label: 'Documents',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/payroll`,
+      icon: <FaMoneyBillWave />,
+      label: user?.role === 'admin' ? 'Payroll Management' : 'My Salary',
     },
     // Admin-only items
     {
