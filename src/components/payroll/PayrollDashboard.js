@@ -56,14 +56,18 @@ const PayrollDashboard = () => {
     }
 
     return onSnapshot(q, (snapshot) => {
-      const payrollData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate()
-      }));
+      const payrollData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate() || new Date(),
+          month: data.month || new Date().toISOString().slice(0, 7)
+        };
+      });
 
       // Sort in memory
-      payrollData.sort((a, b) => b.timestamp - a.timestamp);
+      payrollData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       
       setPayrolls(payrollData);
       setStats(calculateStats(payrollData));
@@ -177,18 +181,28 @@ const PayrollDashboard = () => {
   const handlePayrollSubmit = async (formData) => {
     setLoading(true);
     try {
+      // Ensure all numeric fields are properly converted
+      const payrollData = {
+        ...formData,
+        baseSalary: Number(formData.baseSalary) || 0,
+        bonus: Number(formData.bonus) || 0,
+        deductions: Number(formData.deductions) || 0,
+        netSalary: Number(formData.netSalary) || 0,
+        month: formData.month || new Date().toISOString().slice(0, 7),
+        timestamp: serverTimestamp(),
+        status: 'processed'
+      };
+
       // Generate PDF
-      const pdfBytes = await generatePDF(formData);
-      const storageRef = ref(storage, `salary_slips/${formData.employeeId}_${formData.month}.pdf`);
+      const pdfBytes = await generatePDF(payrollData);
+      const storageRef = ref(storage, `salary_slips/${payrollData.employeeId}_${payrollData.month}.pdf`);
       await uploadBytes(storageRef, pdfBytes);
       const downloadURL = await getDownloadURL(storageRef);
 
       // Save to Firestore
       await addDoc(collection(db, 'payroll'), {
-        ...formData,
-        slipUrl: downloadURL,
-        timestamp: serverTimestamp(),
-        status: 'processed'
+        ...payrollData,
+        slipUrl: downloadURL
       });
 
       setShowForm(false);
@@ -291,6 +305,19 @@ const PayrollDashboard = () => {
     });
 
     return pdfDoc.save();
+  };
+
+  const formatPayrollDate = (dateString) => {
+    try {
+      // Handle YYYY-MM format from input
+      if (dateString.length === 7) {
+        return format(new Date(dateString + '-01'), 'MMMM yyyy');
+      }
+      // Handle full date strings
+      return format(new Date(dateString), 'MMMM yyyy');
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   const filteredPayrolls = payrolls.filter(payroll => {
@@ -457,82 +484,82 @@ const PayrollDashboard = () => {
       {/* Content */}
       {viewMode === 'table' ? (
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Month
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Base Salary
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Net Salary
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPayrolls.map((payroll) => (
-                <motion.tr
-                  key={payroll.id}
-                  layout
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {payroll.employeeName}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {payroll.employeeId}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payroll.department}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(payroll.month), 'MMMM yyyy')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatCurrency(payroll.baseSalary)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
-                    {formatCurrency(payroll.netSalary)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      {payroll.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => window.open(payroll.slipUrl, '_blank')}
-                      className="text-primary hover:text-primary/80"
-                      title="Download Slip"
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Department
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Month
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Base Salary
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Net Salary
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredPayrolls.map((payroll) => (
+                    <motion.tr
+                      key={payroll.id}
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
                     >
-                      <FaFileDownload className="w-5 h-5" />
-                    </button>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {payroll.employeeName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {payroll.employeeId}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {payroll.department}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {format(new Date(payroll.month + '-01'), 'MMMM yyyy')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(payroll.baseSalary)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
+                        {formatCurrency(payroll.netSalary)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                          {payroll.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => window.open(payroll.slipUrl, '_blank')}
+                          className="text-primary hover:text-primary/80"
+                          title="Download Slip"
+                        >
+                          <FaFileDownload className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </motion.tr>
+                      ))}
+              </tbody>
+            </table>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
