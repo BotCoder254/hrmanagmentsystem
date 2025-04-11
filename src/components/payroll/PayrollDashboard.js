@@ -48,30 +48,30 @@ const PayrollDashboard = () => {
   }, [filterMonth, selectedDepartment]);
 
   const subscribeToPayrolls = () => {
-    let q = collection(db, 'payroll');
+      let q = collection(db, 'payroll');
 
-    // Apply filters
-    if (selectedDepartment !== 'all') {
-      q = query(q, where('department', '==', selectedDepartment));
-    }
+      // Apply filters
+      if (selectedDepartment !== 'all') {
+        q = query(q, where('department', '==', selectedDepartment));
+      }
 
-    return onSnapshot(q, (snapshot) => {
-      const payrollData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          timestamp: data.timestamp?.toDate() || new Date(),
+      return onSnapshot(q, (snapshot) => {
+        const payrollData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate() || new Date(),
           month: data.month || new Date().toISOString().slice(0, 7)
-        };
-      });
+          };
+        });
 
       // Sort in memory
       payrollData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      
-      setPayrolls(payrollData);
-      setStats(calculateStats(payrollData));
-    });
+        
+        setPayrolls(payrollData);
+        setStats(calculateStats(payrollData));
+      });
   };
 
   const fetchDepartments = async () => {
@@ -548,13 +548,13 @@ const PayrollDashboard = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => window.open(payroll.slipUrl, '_blank')}
-                          className="text-primary hover:text-primary/80"
-                          title="Download Slip"
-                        >
-                          <FaFileDownload className="w-5 h-5" />
-                        </button>
+                          <button
+                            onClick={() => window.open(payroll.slipUrl, '_blank')}
+                            className="text-primary hover:text-primary/80"
+                            title="Download Slip"
+                          >
+                            <FaFileDownload className="w-5 h-5" />
+                          </button>
                       </td>
                     </motion.tr>
                       ))}
