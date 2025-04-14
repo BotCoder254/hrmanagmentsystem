@@ -23,7 +23,8 @@ import {
   FaClock,
   FaCalendarDay,
   FaMoneyBillWave,
-  FaTasks
+  FaTasks,
+  FaGraduationCap
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -85,6 +86,11 @@ const Sidebar = () => {
       path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/tasks`,
       icon: <FaTasks />,
       label: 'Tasks',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/training`,
+      icon: <FaGraduationCap />,
+      label: user?.role === 'admin' ? 'Training Management' : 'Training',
     },
     // Admin-only items
     {

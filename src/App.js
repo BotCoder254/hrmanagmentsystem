@@ -22,6 +22,7 @@ import DocumentsPage from './pages/documents';
 import AttendancePage from './pages/attendance';
 import PayrollPage from './pages/payroll';
 import TasksPage from './pages/tasks';
+import TrainingPage from './pages/training';
 
 function App() {
   return (
@@ -116,6 +117,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/training"
+            element={
+              <ProtectedRoute>
+                <TrainingPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Admin Routes */}
           <Route
@@ -195,6 +204,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <TasksPage isAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/training"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <TrainingPage isAdmin />
               </ProtectedRoute>
             }
           />

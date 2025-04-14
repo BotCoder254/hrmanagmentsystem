@@ -316,6 +316,16 @@ const PayrollDashboard = () => {
     return matchesSearch && matchesMonth && matchesDepartment;
   });
 
+  const formatDate = (date) => {
+    if (!date) return '';
+    try {
+      return format(new Date(date), 'MMM yyyy');
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return '';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -527,7 +537,7 @@ const PayrollDashboard = () => {
                       {payroll.department}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatMonth(payroll.month)}
+                      {formatDate(payroll.month)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {formatCurrency(payroll.baseSalary)}
