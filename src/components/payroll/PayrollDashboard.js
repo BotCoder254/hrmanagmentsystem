@@ -63,11 +63,11 @@ const PayrollDashboard = () => {
 
     return onSnapshot(q, (snapshot) => {
       const payrollData = snapshot.docs.map(doc => ({
-        id: doc.id,
+          id: doc.id,
         ...doc.data(),
         timestamp: doc.data().timestamp?.toDate() || new Date()
       }));
-      
+
       setPayrolls(payrollData);
       setStats(calculateStats(payrollData));
       setLoading(false);

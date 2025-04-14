@@ -26,34 +26,32 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    try {
-      const q = query(
-        collection(db, 'announcements'),
-        orderBy('timestamp', 'desc')
-      );
+    const q = query(
+      collection(db, 'announcements'),
+      orderBy('timestamp', 'desc')
+    );
 
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const announcementsData = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          const timestamp = data.timestamp?.toDate?.() || new Date();
-          return {
-            id: doc.id,
-            ...data,
-            timestamp,
-            category: data.category || 'general',
-            mediaUrls: data.mediaUrls || [],
-            attachments: data.attachments || []
-          };
-        });
-        setAnnouncements(announcementsData);
-      }, (error) => {
-        console.error("Error fetching announcements:", error);
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const announcementsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate() || new Date(),
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+          category: data.category || 'general',
+          mediaUrls: data.mediaUrls || [],
+          attachments: data.attachments || [],
+          active: data.active ?? true
+        };
       });
+      setAnnouncements(announcementsData);
+    }, (error) => {
+      console.error("Error fetching announcements:", error);
+    });
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error("Error setting up announcements listener:", error);
-    }
+    return () => unsubscribe();
   }, []);
 
   const uploadMedia = async (files) => {
@@ -106,7 +104,8 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
         content: formData.content,
         category: formData.category || 'general',
         timestamp: serverTimestamp(),
-        createdBy: user.email,
+        createdBy: user.uid,
+        createdByEmail: user.email,
         active: true,
         mediaUrls: mediaUrls,
         attachments: attachments,
@@ -116,19 +115,6 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
       };
 
       if (selectedAnnouncement) {
-        // Delete old media files if they're being replaced
-        if (selectedAnnouncement.mediaUrls) {
-          for (const media of selectedAnnouncement.mediaUrls) {
-            if (!formData.existingMedia?.includes(media.url)) {
-              try {
-                await deleteObject(ref(storage, media.fileName));
-              } catch (error) {
-                console.error('Error deleting old media:', error);
-              }
-            }
-          }
-        }
-
         const docRef = doc(db, 'announcements', selectedAnnouncement.id);
         await updateDoc(docRef, {
           ...announcementData,
@@ -137,8 +123,13 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
           attachments: [...(formData.existingAttachments || []), ...attachments]
         });
       } else {
-        await addDoc(collection(db, 'announcements'), announcementData);
+        await addDoc(collection(db, 'announcements'), {
+          ...announcementData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
       }
+      
       setIsFormOpen(false);
       setSelectedAnnouncement(null);
     } catch (error) {
