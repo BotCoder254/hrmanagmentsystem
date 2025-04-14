@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../config/firebase';
@@ -13,13 +13,14 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import PayrollForm from './PayrollForm';
 import SalarySlip from './SalarySlip';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { formatCurrency, formatMonth } from '../../utils/format';
 
 const PayrollDashboard = () => {
   const [payrolls, setPayrolls] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [filterMonth, setFilterMonth] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -40,38 +41,37 @@ const PayrollDashboard = () => {
       '4001+': 0
     }
   });
+  const [selectedPayroll, setSelectedPayroll] = useState(null);
+  const [showSlip, setShowSlip] = useState(false);
 
   useEffect(() => {
     fetchDepartments();
     const unsubscribe = subscribeToPayrolls();
     return () => unsubscribe();
-  }, [filterMonth, selectedDepartment]);
+  }, [selectedDepartment, filterMonth]);
 
   const subscribeToPayrolls = () => {
-      let q = collection(db, 'payroll');
+    let q = collection(db, 'payroll');
 
-      // Apply filters
-      if (selectedDepartment !== 'all') {
-        q = query(q, where('department', '==', selectedDepartment));
-      }
+    if (selectedDepartment !== 'all') {
+      q = query(q, where('department', '==', selectedDepartment));
+    }
 
-      return onSnapshot(q, (snapshot) => {
-        const payrollData = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            timestamp: data.timestamp?.toDate() || new Date(),
-          month: data.month || new Date().toISOString().slice(0, 7)
-          };
-        });
+    if (filterMonth) {
+      q = query(q, where('month', '==', filterMonth));
+    }
 
-      // Sort in memory
-      payrollData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        
-        setPayrolls(payrollData);
-        setStats(calculateStats(payrollData));
-      });
+    return onSnapshot(q, (snapshot) => {
+      const payrollData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate() || new Date()
+      }));
+      
+      setPayrolls(payrollData);
+      setStats(calculateStats(payrollData));
+      setLoading(false);
+    });
   };
 
   const fetchDepartments = async () => {
@@ -307,19 +307,6 @@ const PayrollDashboard = () => {
     return pdfDoc.save();
   };
 
-  const formatPayrollDate = (dateString) => {
-    try {
-      // Handle YYYY-MM format from input
-      if (dateString.length === 7) {
-        return format(new Date(dateString + '-01'), 'MMMM yyyy');
-      }
-      // Handle full date strings
-      return format(new Date(dateString), 'MMMM yyyy');
-    } catch (error) {
-      return 'Invalid Date';
-    }
-  };
-
   const filteredPayrolls = payrolls.filter(payroll => {
     const matchesSearch = 
       payroll.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -328,13 +315,6 @@ const PayrollDashboard = () => {
     const matchesDepartment = selectedDepartment === 'all' || payroll.department === selectedDepartment;
     return matchesSearch && matchesMonth && matchesDepartment;
   });
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   if (loading) {
     return (
@@ -483,83 +463,104 @@ const PayrollDashboard = () => {
 
       {/* Content */}
       {viewMode === 'table' ? (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+        <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Employee
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Department
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Month
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Base Salary
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Net Salary
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Employee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Department
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Month
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Base Salary
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Net Salary
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <td colSpan="7" className="px-6 py-4 text-center">
+                    <FaSpinner className="w-6 h-6 text-primary animate-spin mx-auto" />
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPayrolls.map((payroll) => (
-                    <motion.tr
-                      key={payroll.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {payroll.employeeName}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {payroll.employeeId}
-                            </div>
+              ) : payrolls.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                    No payroll records found
+                  </td>
+                </tr>
+              ) : (
+                filteredPayrolls.map((payroll) => (
+                  <motion.tr
+                    key={payroll.id}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {payroll.employeeName}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {payroll.employeeId}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {payroll.department}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {format(new Date(payroll.month + '-01'), 'MMMM yyyy')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(payroll.baseSalary)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
-                        {formatCurrency(payroll.netSalary)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          {payroll.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button
-                            onClick={() => window.open(payroll.slipUrl, '_blank')}
-                            className="text-primary hover:text-primary/80"
-                            title="Download Slip"
-                          >
-                            <FaFileDownload className="w-5 h-5" />
-                          </button>
-                      </td>
-                    </motion.tr>
-                      ))}
-              </tbody>
-            </table>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {payroll.department}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatMonth(payroll.month)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {formatCurrency(payroll.baseSalary)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary text-right">
+                      {formatCurrency(payroll.netSalary)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        payroll.status === 'processed' 
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {payroll.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                      <button
+                        onClick={() => {
+                          setSelectedPayroll(payroll);
+                          setShowSlip(true);
+                        }}
+                        className="text-primary hover:text-primary/80 inline-flex items-center justify-center"
+                        title="Download Slip"
+                      >
+                        <FaFileDownload className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </motion.tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -635,11 +636,15 @@ const PayrollDashboard = () => {
       )}
 
       {/* Salary Slip Modal */}
-      {selectedSlip && (
+      {showSlip && selectedPayroll && (
         <SalarySlip
-          slip={selectedSlip}
-          onClose={() => setSelectedSlip(null)}
-          onDownload={() => window.open(selectedSlip.slipUrl, '_blank')}
+          slip={selectedPayroll}
+          onClose={() => {
+            setShowSlip(false);
+            setSelectedPayroll(null);
+          }}
+          onDownload={() => generatePDF(selectedPayroll)}
+          onPrint={() => window.print()}
         />
       )}
     </div>

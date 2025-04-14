@@ -1,41 +1,43 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
-import { format } from 'date-fns';
+import { FaSort, FaCheck, FaSpinner, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 
 const TaskList = ({ onEditTask }) => {
-  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState('deadline');
   const [sortDirection, setSortDirection] = useState('asc');
   const [filter, setFilter] = useState('all');
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
-    let q = collection(db, 'tasks');
-
-    if (user.role !== 'admin') {
-      q = query(q, where('assignedTo', '==', user.uid));
+    let q;
+    if (isAdmin) {
+      q = query(collection(db, 'tasks'));
+    } else {
+      q = query(collection(db, 'tasks'), where('assignedTo', '==', user.uid));
     }
-
-    q = query(q, orderBy(sortField, sortDirection));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const tasksData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        deadline: doc.data().deadline?.toDate()
+        deadline: doc.data().deadline?.toDate() || new Date()
       }));
       setTasks(tasksData);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user.uid, user.role, sortField, sortDirection]);
+  }, [user, isAdmin]);
 
   const handleSort = (field) => {
-    if (field === sortField) {
+    if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
@@ -64,10 +66,28 @@ const TaskList = ({ onEditTask }) => {
     }
   };
 
-  const filteredTasks = tasks.filter(task => {
-    if (filter === 'all') return true;
-    return task.status === filter;
-  });
+  const sortTasks = (tasksToSort) => {
+    return [...tasksToSort].sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case 'priority':
+          comparison = a.priority.localeCompare(b.priority);
+          break;
+        case 'status':
+          comparison = a.status.localeCompare(b.status);
+          break;
+        case 'deadline':
+          comparison = new Date(a.deadline) - new Date(b.deadline);
+          break;
+        default:
+          comparison = 0;
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -75,129 +95,179 @@ const TaskList = ({ onEditTask }) => {
         return 'bg-green-100 text-green-800';
       case 'in_progress':
         return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <FaCheck className="w-4 h-4" />;
+      case 'in_progress':
+        return <FaSpinner className="w-4 h-4 animate-spin" />;
+      case 'pending':
+        return <FaClock className="w-4 h-4" />;
+      default:
+        return <FaExclamationTriangle className="w-4 h-4" />;
+    }
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    if (filter === 'all') return true;
+    return task.status === filter;
+  });
+
+  const sortedTasks = sortTasks(filteredTasks);
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center py-8">
+        <FaSpinner className="w-8 h-8 text-primary animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-          >
-            <option value="all">All Tasks</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
+        >
+          <option value="all">All Tasks</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('title')}
-              >
-                Title
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('priority')}
-              >
-                Priority
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('status')}
-              >
-                Status
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('deadline')}
-              >
-                Deadline
-              </th>
-              <th scope="col" className="relative px-6 py-3">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredTasks.map((task) => (
-              <tr key={task.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{task.title}</div>
-                  <div className="text-sm text-gray-500">{task.description}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {task.priority}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <select
-                    value={task.status}
-                    onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                    className={`text-sm rounded-full px-2.5 py-0.5 ${getStatusColor(task.status)}`}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {format(task.deadline, 'MMM d, yyyy')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => onEditTask(task)}
-                    className="text-primary hover:text-primary/80 mr-4"
-                  >
-                    Edit
-                  </button>
-                  {user.role === 'admin' && (
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </td>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  onClick={() => handleSort('title')}
+                >
+                  <div className="flex items-center gap-2">
+                    Title
+                    <FaSort className="w-4 h-4" />
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assigned To
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  onClick={() => handleSort('priority')}
+                >
+                  <div className="flex items-center gap-2">
+                    Priority
+                    <FaSort className="w-4 h-4" />
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  onClick={() => handleSort('deadline')}
+                >
+                  <div className="flex items-center gap-2">
+                    Deadline
+                    <FaSort className="w-4 h-4" />
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-2">
+                    Status
+                    <FaSort className="w-4 h-4" />
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {filteredTasks.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No tasks found.</p>
-          </div>
-        )}
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              <AnimatePresence mode="popLayout">
+                {sortedTasks.map((task) => (
+                  <motion.tr
+                    key={task.id}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{task.title}</div>
+                      <div className="text-sm text-gray-500">{task.description}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{task.assignedToName}</div>
+                      <div className="text-sm text-gray-500">{task.assignedToEmail}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        task.priority === 'high'
+                          ? 'bg-red-100 text-red-800'
+                          : task.priority === 'medium'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {task.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {format(new Date(task.deadline), 'MMM d, yyyy')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`flex items-center gap-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(task.status)}`}>
+                        {getStatusIcon(task.status)}
+                        <span>{task.status.replace('_', ' ').toUpperCase()}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end items-center space-x-2">
+                        {isAdmin ? (
+                          <>
+                            <button
+                              onClick={() => onEditTask(task)}
+                              className="text-primary hover:text-primary/80"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(task.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                            className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        )}
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
