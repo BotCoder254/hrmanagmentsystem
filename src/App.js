@@ -21,11 +21,12 @@ import JobsPage from './pages/jobs';
 import DocumentsPage from './pages/documents';
 import AttendancePage from './pages/attendance';
 import PayrollPage from './pages/payroll';
+import TasksPage from './pages/tasks';
 
 function App() {
   return (
     <Router>
-    <AuthProvider>
+      <AuthProvider>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landing />} />
@@ -107,6 +108,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/tasks"
+            element={
+              <ProtectedRoute>
+                <TasksPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Admin Routes */}
           <Route
@@ -181,8 +190,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/tasks"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <TasksPage isAdmin />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
-    </AuthProvider>
+      </AuthProvider>
     </Router>
   );
 }

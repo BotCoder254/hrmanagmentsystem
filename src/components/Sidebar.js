@@ -22,7 +22,8 @@ import {
   FaAngleRight,
   FaClock,
   FaCalendarDay,
-  FaMoneyBillWave
+  FaMoneyBillWave,
+  FaTasks
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,32 +33,11 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const { user, logOut } = useAuth();
 
-  const employeeLinks = [
-    { name: 'Dashboard', path: '/dashboard', icon: FaHome },
-    { name: 'Announcements', path: '/dashboard/announcements', icon: FaBullhorn },
-    { name: 'Attendance', path: '/dashboard/attendance', icon: FaClock },
-    { name: 'Leaves', path: '/dashboard/leaves', icon: FaCalendarAlt },
-    { name: 'Performance', path: '/dashboard/performance', icon: FaChartLine },
-    { name: 'Jobs', path: '/dashboard/jobs', icon: FaBriefcase },
-    { name: 'Documents', path: '/dashboard/documents', icon: FaFileAlt },
-  ];
-
-  const adminLinks = [
-    { name: 'Dashboard', path: '/admin', icon: FaHome },
-    { name: 'Employees', path: '/admin/employees', icon: FaUsers },
-    { name: 'Announcements', path: '/admin/announcements', icon: FaBullhorn },
-    { name: 'Attendance', path: '/admin/attendance', icon: FaClock },
-    { name: 'Leaves', path: '/admin/leaves', icon: FaCalendarAlt },
-    { name: 'Performance', path: '/admin/performance', icon: FaChartLine },
-    { name: 'Jobs', path: '/admin/jobs', icon: FaBriefcase },
-    { name: 'Documents', path: '/admin/documents', icon: FaFileAlt },
-  ];
-
   const menuItems = [
     // Common items for both roles
     {
       path: user?.role === 'admin' ? '/admin' : '/dashboard',
-      icon: <FaChartBar />,
+      icon: <FaHome />,
       label: 'Dashboard',
     },
     {
@@ -100,6 +80,11 @@ const Sidebar = () => {
       path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/payroll`,
       icon: <FaMoneyBillWave />,
       label: user?.role === 'admin' ? 'Payroll Management' : 'My Salary',
+    },
+    {
+      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/tasks`,
+      icon: <FaTasks />,
+      label: 'Tasks',
     },
     // Admin-only items
     {
@@ -205,7 +190,7 @@ const Sidebar = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              Sign Out
+              Logout
             </motion.span>
           )}
         </button>
