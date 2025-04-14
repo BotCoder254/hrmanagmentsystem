@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FaGraduationCap, FaUsers, FaChartLine, FaClock } from 'react-icons/fa';
 import TrainingCard from './TrainingCard';
@@ -40,13 +40,15 @@ const TrainingDashboard = ({ userId, isAdmin, onEditTraining }) => {
   useEffect(() => {
     let unsubscribeTrainings;
     let unsubscribeEnrollments;
+    let unsubscribeAllEnrollments;
 
     const setupSubscriptions = async () => {
       try {
-        // Subscribe to trainings
-        const trainingsQuery = isAdmin 
-          ? query(collection(db, 'trainings'))
-          : query(collection(db, 'trainings'));
+        // Subscribe to trainings with ordering
+        const trainingsQuery = query(
+          collection(db, 'trainings'),
+          orderBy('createdAt', 'desc')
+        );
 
         unsubscribeTrainings = onSnapshot(trainingsQuery, (snapshot) => {
           const trainingsData = snapshot.docs.map(doc => {
@@ -60,10 +62,9 @@ const TrainingDashboard = ({ userId, isAdmin, onEditTraining }) => {
             };
           });
           
-          console.log('Fetched trainings:', trainingsData); // Debug log
           setTrainings(trainingsData);
           
-          // Calculate training stats
+          // Calculate real-time stats
           const now = new Date();
           const activeCount = trainingsData.filter(t => {
             const start = new Date(t.startDate);
@@ -83,29 +84,41 @@ const TrainingDashboard = ({ userId, isAdmin, onEditTraining }) => {
           }));
         });
 
-        // Subscribe to enrollments if not admin
+        // Subscribe to user enrollments
         if (!isAdmin && user?.uid) {
-          const enrollmentsQuery = query(
+          const userEnrollmentsQuery = query(
             collection(db, 'enrollments'),
             where('userId', '==', user.uid)
           );
 
-          unsubscribeEnrollments = onSnapshot(enrollmentsQuery, (snapshot) => {
+          unsubscribeEnrollments = onSnapshot(userEnrollmentsQuery, (snapshot) => {
             const enrollmentsData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              enrolledAt: doc.data().enrolledAt?.toDate?.() || new Date(doc.data().enrolledAt)
+            }));
+            setEnrollments(enrollmentsData);
+          });
+        }
+
+        // Subscribe to all enrollments for stats (admin only)
+        if (isAdmin) {
+          const allEnrollmentsQuery = query(collection(db, 'enrollments'));
+          
+          unsubscribeAllEnrollments = onSnapshot(allEnrollmentsQuery, (snapshot) => {
+            const allEnrollments = snapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data()
             }));
-            setEnrollments(enrollmentsData);
-
-            // Calculate completion rate
-            const completedCount = enrollmentsData.filter(e => e.status === 'completed').length;
-            const completionRate = enrollmentsData.length > 0
-              ? Math.round((completedCount / enrollmentsData.length) * 100)
+            
+            const completedCount = allEnrollments.filter(e => e.status === 'completed').length;
+            const completionRate = allEnrollments.length > 0
+              ? Math.round((completedCount / allEnrollments.length) * 100)
               : 0;
 
             setStats(prev => ({
               ...prev,
-              totalEnrollments: enrollmentsData.length,
+              totalEnrollments: allEnrollments.length,
               completionRate
             }));
           });
@@ -123,6 +136,7 @@ const TrainingDashboard = ({ userId, isAdmin, onEditTraining }) => {
     return () => {
       if (unsubscribeTrainings) unsubscribeTrainings();
       if (unsubscribeEnrollments) unsubscribeEnrollments();
+      if (unsubscribeAllEnrollments) unsubscribeAllEnrollments();
     };
   }, [isAdmin, user]);
 
