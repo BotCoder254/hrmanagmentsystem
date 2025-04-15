@@ -33,73 +33,7 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logOut } = useAuth();
-
-  const menuItems = [
-    // Common items for both roles
-    {
-      path: user?.role === 'admin' ? '/admin' : '/dashboard',
-      icon: <FaHome />,
-      label: 'Dashboard',
-    },
-    {
-      path: user?.role === 'admin' ? '/admin/employees' : '/dashboard/profile',
-      icon: user?.role === 'admin' ? <FaUsers /> : <FaUserCog />,
-      label: user?.role === 'admin' ? 'Employees' : 'My Profile',
-      adminOnly: user?.role === 'admin',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/announcements`,
-      icon: <FaBullhorn />,
-      label: 'Announcements',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/attendance`,
-      icon: <FaClock />,
-      label: 'Attendance',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/leaves`,
-      icon: <FaCalendarCheck />,
-      label: 'Leave Requests',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/performance`,
-      icon: <FaChartLine />,
-      label: 'Performance',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/jobs`,
-      icon: <FaBriefcase />,
-      label: 'Jobs',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/documents`,
-      icon: <FaFileAlt />,
-      label: 'Documents',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/payroll`,
-      icon: <FaMoneyBillWave />,
-      label: user?.role === 'admin' ? 'Payroll Management' : 'My Salary',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/tasks`,
-      icon: <FaTasks />,
-      label: 'Tasks',
-    },
-    {
-      path: `${user?.role === 'admin' ? '/admin' : '/dashboard'}/training`,
-      icon: <FaGraduationCap />,
-      label: user?.role === 'admin' ? 'Training Management' : 'Training',
-    },
-    // Admin-only items
-    {
-      path: '/admin/settings',
-      icon: <FaCog />,
-      label: 'Settings',
-      adminOnly: true,
-    },
-  ];
+  const isAdmin = user?.role === 'admin';
 
   const handleLogout = async () => {
     try {
@@ -110,9 +44,31 @@ const Sidebar = () => {
     }
   };
 
-  const filteredMenuItems = menuItems.filter(
-    item => !item.adminOnly || user?.role === 'admin'
-  );
+  const menuItems = isAdmin ? [
+    { path: '/admin', icon: FaHome, label: 'Dashboard' },
+    { path: '/admin/employees', icon: FaUsers, label: 'Employees' },
+    { path: '/admin/announcements', icon: FaBullhorn, label: 'Announcements' },
+    { path: '/admin/attendance', icon: FaCalendarAlt, label: 'Attendance' },
+    { path: '/admin/leaves', icon: FaFileAlt, label: 'Leave Requests' },
+    { path: '/admin/payroll', icon: FaMoneyBillWave, label: 'Payroll' },
+    { path: '/admin/tasks', icon: FaTasks, label: 'Tasks' },
+    { path: '/admin/training', icon: FaGraduationCap, label: 'Training' },
+    { path: '/admin/shifts', icon: FaClock, label: 'Shifts' },
+    { path: '/admin/jobs', icon: FaBriefcase, label: 'Jobs' },
+    { path: '/admin/documents', icon: FaFileAlt, label: 'Documents' }
+  ] : [
+    { path: '/dashboard', icon: FaHome, label: 'Dashboard' },
+    { path: '/profile', icon: FaUserCircle, label: 'Profile' },
+    { path: '/announcements', icon: FaBullhorn, label: 'Announcements' },
+    { path: '/attendance', icon: FaCalendarAlt, label: 'Attendance' },
+    { path: '/leaves', icon: FaFileAlt, label: 'Leave Requests' },
+    { path: '/payroll', icon: FaMoneyBillWave, label: 'Payroll' },
+    { path: '/tasks', icon: FaTasks, label: 'Tasks' },
+    { path: '/training', icon: FaGraduationCap, label: 'Training' },
+    { path: '/shifts', icon: FaClock, label: 'Shifts' },
+    { path: '/jobs', icon: FaBriefcase, label: 'Jobs' },
+    { path: '/documents', icon: FaFileAlt, label: 'Documents' }
+  ];
 
   return (
     <motion.div
@@ -159,23 +115,23 @@ const Sidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
-          {filteredMenuItems.map((item) => (
-            <li key={item.path}>
+          {menuItems.map(({ path, icon: Icon, label }) => (
+            <li key={path}>
               <Link
-                to={item.path}
+                to={path}
                 className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                  location.pathname === item.path
+                  location.pathname === path
                     ? 'bg-primary text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <span className="text-xl">{item.icon}</span>
+                <Icon className="text-xl" />
                 {!isCollapsed && (
                   <motion.span
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                   >
-                    {item.label}
+                    {label}
                   </motion.span>
                 )}
               </Link>
@@ -205,4 +161,4 @@ const Sidebar = () => {
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
