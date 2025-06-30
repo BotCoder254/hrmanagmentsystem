@@ -1,6 +1,9 @@
 import { motion } from 'framer-motion';
-import { FaEdit, FaTrash, FaUser, FaClock, FaTags } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaUser, FaClock, FaTags, FaUsers, FaGlobeAmericas } from 'react-icons/fa';
 import { format } from 'date-fns';
+import { useState, useEffect } from 'react';
+import { collection, getDocs, query } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 const categoryColors = {
   general: 'bg-blue-100 text-blue-800',
@@ -17,7 +20,46 @@ const priorityColors = {
 };
 
 const AnnouncementCard = ({ announcement, isAdmin, onEdit, onDelete }) => {
-  const { title, content, category, priority, createdByEmail, tags = [] } = announcement;
+  const { 
+    title, 
+    content, 
+    category, 
+    priority, 
+    createdByEmail, 
+    tags = [], 
+    isGlobal = true, 
+    targetEmployees = []
+  } = announcement;
+  
+  const [targetedEmployees, setTargetedEmployees] = useState([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [showTargets, setShowTargets] = useState(false);
+  
+  useEffect(() => {
+    const fetchTargetedEmployees = async () => {
+      if (isGlobal || targetEmployees.length === 0) return;
+      
+      setIsLoadingEmployees(true);
+      try {
+        // Simple query without any filters - we'll filter in memory
+        const employeesQuery = query(collection(db, 'employees'));
+        const snapshot = await getDocs(employeesQuery);
+        
+        // Filter the employees client-side to match targetEmployees
+        const employees = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(emp => targetEmployees.includes(emp.id));
+        
+        setTargetedEmployees(employees);
+      } catch (error) {
+        console.error('Error fetching targeted employees:', error);
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    };
+    
+    fetchTargetedEmployees();
+  }, [isGlobal, targetEmployees]);
   
   const formatDate = (date) => {
     try {
@@ -44,6 +86,19 @@ const AnnouncementCard = ({ announcement, isAdmin, onEdit, onDelete }) => {
                 {priority.charAt(0).toUpperCase() + priority.slice(1)}
               </span>
             )}
+            <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 flex items-center gap-1">
+              {isGlobal ? (
+                <>
+                  <FaGlobeAmericas className="w-3 h-3" />
+                  <span>All Employees</span>
+                </>
+              ) : (
+                <>
+                  <FaUsers className="w-3 h-3" />
+                  <span>{targetEmployees.length} Recipients</span>
+                </>
+              )}
+            </span>
           </div>
         </div>
         
@@ -115,6 +170,35 @@ const AnnouncementCard = ({ announcement, isAdmin, onEdit, onDelete }) => {
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Targeted Employees - Admin Only */}
+      {isAdmin && !isGlobal && targetedEmployees.length > 0 && (
+        <div className="mt-4">
+          <button 
+            onClick={() => setShowTargets(!showTargets)}
+            className="text-xs flex items-center gap-1 text-primary hover:text-primary/80 font-medium transition-colors"
+          >
+            <FaUsers className="w-3 h-3" />
+            {showTargets ? 'Hide' : 'Show'} {targetedEmployees.length} Recipients
+          </button>
+          
+          {showTargets && (
+            <div className="mt-2 p-2 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {targetedEmployees.map(emp => (
+                  <div key={emp.id} className="flex items-center gap-2 text-xs">
+                    <FaUser className="text-gray-400" />
+                    <div>
+                      <div className="font-medium">{emp.name || 'Unnamed'}</div>
+                      <div className="text-gray-500">{emp.email}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -26,6 +26,7 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Use a simple query that doesn't require indexes
     const q = query(
       collection(db, 'announcements'),
       orderBy('timestamp', 'desc')
@@ -43,16 +44,33 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
           category: data.category || 'general',
           mediaUrls: data.mediaUrls || [],
           attachments: data.attachments || [],
+          targetEmployees: data.targetEmployees || [],
+          isGlobal: data.isGlobal !== false,
           active: data.active ?? true
         };
+      }).filter(announcement => {
+        // Filter for regular employees - show only active announcements
+        if (!isAdmin && !announcement.active) {
+          return false;
+        }
+        
+        // For regular employees, show only global announcements or those targeted to them
+        if (!isAdmin) {
+          return announcement.isGlobal || 
+                 announcement.targetEmployees.includes(user.uid);
+        }
+        
+        // Admins see all announcements
+        return true;
       });
+      
       setAnnouncements(announcementsData);
     }, (error) => {
       console.error("Error fetching announcements:", error);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isAdmin, user]);
 
   const uploadMedia = async (files) => {
     const mediaUrls = [];
@@ -111,7 +129,9 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
         attachments: attachments,
         priority: formData.priority || 'normal',
         expiryDate: formData.expiryDate || null,
-        tags: formData.tags || []
+        tags: formData.tags || [],
+        isGlobal: formData.isGlobal,
+        targetEmployees: formData.isGlobal ? [] : formData.targetEmployees || []
       };
 
       if (selectedAnnouncement) {
@@ -149,7 +169,9 @@ const AnnouncementsPage = ({ isAdmin = false }) => {
       expiryDate: announcement.expiryDate,
       tags: announcement.tags || [],
       mediaUrls: announcement.mediaUrls || [],
-      attachments: announcement.attachments || []
+      attachments: announcement.attachments || [],
+      isGlobal: announcement.isGlobal !== false,
+      targetEmployees: announcement.targetEmployees || []
     });
     setIsFormOpen(true);
   };

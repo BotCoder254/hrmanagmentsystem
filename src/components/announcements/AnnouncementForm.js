@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, query } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import {
   FaHeading,
   FaAlignLeft,
@@ -10,7 +12,10 @@ import {
   FaTimes,
   FaExclamationCircle,
   FaClock,
-  FaTags
+  FaTags,
+  FaUsers,
+  FaUserPlus,
+  FaChevronDown
 } from 'react-icons/fa';
 
 const InputField = ({ icon: Icon, label, error, className = '', ...props }) => (
@@ -136,6 +141,120 @@ const FilePreview = ({ file, onRemove }) => (
   </div>
 );
 
+// Add new MultiSelectField component
+const MultiSelectField = ({ icon: Icon, label, error, options, value, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleToggle = (id) => {
+    const newSelected = value.includes(id)
+      ? value.filter(item => item !== id)
+      : [...value, id];
+    onChange(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (value.length === options.length) {
+      onChange([]);
+    } else {
+      onChange(options.map(option => option.id));
+    }
+  };
+
+  return (
+    <div className={`space-y-1 ${className}`} ref={dropdownRef}>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="relative">
+        <div 
+          className={`relative rounded-md border ${error ? 'border-red-300' : 'border-gray-300'} cursor-pointer`}
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Icon className="h-5 w-5 text-gray-400" />
+          </div>
+          <div className="min-h-[42px] flex items-center pl-10 pr-10 py-2">
+            {value.length === 0 ? (
+              <span className="text-gray-500">Select employees...</span>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {value.length > 3 ? (
+                  <span className="text-sm">{value.length} employees selected</span>
+                ) : (
+                  options
+                    .filter(option => value.includes(option.id))
+                    .map(option => (
+                      <span 
+                        key={option.id} 
+                        className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full"
+                      >
+                        {option.name || option.email}
+                      </span>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+            <FaChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
+          </div>
+        </div>
+        
+        {isOpen && (
+          <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md max-h-60 overflow-auto border border-gray-200">
+            <div 
+              className="p-2 border-b border-gray-200 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
+              onClick={handleSelectAll}
+            >
+              <span className="font-medium text-gray-700">
+                {value.length === options.length ? 'Deselect All' : 'Select All'}
+              </span>
+              <span className="text-xs text-gray-500">
+                {value.length} / {options.length}
+              </span>
+            </div>
+            {options.map(option => (
+              <div
+                key={option.id}
+                className={`p-2 cursor-pointer hover:bg-gray-50 ${value.includes(option.id) ? 'bg-primary/5' : ''}`}
+                onClick={() => handleToggle(option.id)}
+              >
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={value.includes(option.id)}
+                    onChange={() => {}}
+                    className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
+                  <div className="ml-2">
+                    <div className="text-sm font-medium text-gray-700">
+                      {option.name || 'Unnamed'}
+                    </div>
+                    <div className="text-xs text-gray-500">{option.email}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+};
+
 const AnnouncementForm = ({ initialData, onSubmit, onCancel, loading }) => {
   const [formData, setFormData] = useState({
     title: '',
@@ -147,11 +266,15 @@ const AnnouncementForm = ({ initialData, onSubmit, onCancel, loading }) => {
     files: [],
     existingMedia: [],
     existingAttachments: [],
+    targetEmployees: [],
+    isGlobal: true,
     ...initialData
   });
 
   const [errors, setErrors] = useState({});
   const [previewFiles, setPreviewFiles] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -165,10 +288,35 @@ const AnnouncementForm = ({ initialData, onSubmit, onCancel, loading }) => {
         tags: initialData.tags || [],
         existingMedia: initialData.mediaUrls || [],
         existingAttachments: initialData.attachments || [],
+        targetEmployees: initialData.targetEmployees || [],
+        isGlobal: initialData.isGlobal !== false,
         files: []
       });
     }
   }, [initialData]);
+
+  // Fetch employees list
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+        // Simple query without filters to avoid index requirements
+        const q = query(collection(db, 'employees'));
+        const snapshot = await getDocs(q);
+        const employeeData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setEmployees(employeeData);
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
 
   const categoryOptions = [
     { value: 'general', label: 'General' },
@@ -190,6 +338,9 @@ const AnnouncementForm = ({ initialData, onSubmit, onCancel, loading }) => {
     if (!formData.content.trim()) newErrors.content = 'Content is required';
     if (!formData.category) newErrors.category = 'Category is required';
     if (!formData.priority) newErrors.priority = 'Priority is required';
+    if (!formData.isGlobal && formData.targetEmployees.length === 0) {
+      newErrors.targetEmployees = 'Please select at least one employee';
+    }
 
     const totalFileSize = [...formData.files].reduce((sum, file) => sum + file.size, 0);
     if (totalFileSize > 50 * 1024 * 1024) { // 50MB limit
@@ -208,6 +359,24 @@ const AnnouncementForm = ({ initialData, onSubmit, onCancel, loading }) => {
     }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const handleCheckboxChange = (e) => {
+    const { name, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
+  };
+
+  const handleTargetEmployeesChange = (selectedIds) => {
+    setFormData(prev => ({
+      ...prev,
+      targetEmployees: selectedIds
+    }));
+    if (errors.targetEmployees) {
+      setErrors(prev => ({ ...prev, targetEmployees: null }));
     }
   };
 
@@ -349,6 +518,39 @@ const AnnouncementForm = ({ initialData, onSubmit, onCancel, loading }) => {
           onChange={handleTagsChange}
           placeholder="news, important, meeting"
         />
+      </div>
+
+      {/* Target Audience Section */}
+      <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+        <h3 className="font-medium flex items-center gap-2">
+          <FaUsers className="text-primary" />
+          Target Audience
+        </h3>
+        
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="isGlobal"
+            name="isGlobal"
+            checked={formData.isGlobal}
+            onChange={handleCheckboxChange}
+            className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+          />
+          <label htmlFor="isGlobal" className="text-sm text-gray-700">
+            Send to all employees
+          </label>
+        </div>
+        
+        {!formData.isGlobal && (
+          <MultiSelectField
+            icon={FaUserPlus}
+            label="Select Employees"
+            value={formData.targetEmployees}
+            onChange={handleTargetEmployeesChange}
+            options={employees}
+            error={errors.targetEmployees}
+          />
+        )}
       </div>
 
       <div className="space-y-2">
